@@ -68,3 +68,24 @@ docker-compose up
 ````
 
 Then, from your favorite browser, just load the following URL: http://localhost/ and get immediate access to the 700+ ZOO-Services through WPS and OGC API - Processes depending on your preferences 🎉.
+
+
+## EODHP
+
+EODHP uses a deployment of the EOEPCA ADES component, which in turn uses ZOO-Project as the main framework. Dependencies within the ZOO project require some EODHP-specific changes.
+
+To build and upload new builds of the EODHP ZOO image, you can use the following procedure. Ensure you replace `<version>` with the appropriate version number.
+
+```bash
+docker build --no-cache -t zoo-project:eodhp-<version> \
+ --build-arg CONDA_ENV_NAME=env_zoo_calrissian \
+ --build-arg PY_VER=3.10 \
+ --build-arg CONDA_ENV_FILE=https://raw.githubusercontent.com/UKEODHP/eoepca-proc-service-template/master/.devcontainer/environment.yml \
+ -f docker/dru/Dockerfile .
+```
+Tag and push to EODHP public ECR:
+```bash
+docker tag zoo-project:eodhp-<version> public.ecr.aws/n1b3o1k2/zoo-project-dru:eodhp-<version>
+
+docker push public.ecr.aws/n1b3o1k2/zoo-project-dru:eodhp-<version>
+```
