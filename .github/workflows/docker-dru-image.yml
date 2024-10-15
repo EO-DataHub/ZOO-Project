@@ -28,8 +28,8 @@ jobs:
         id: get-image-tag
         run: |
           IMAGE_TAG=$(if [[ "${GITHUB_REF##refs/tags/}" =~ ^v ]]; then echo ${GITHUB_REF##refs/tags/v}; elif [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then echo "latest"; else echo "${GITHUB_REF##refs/heads/}-latest" | sed "s/[^a-zA-Z0-9]/-/g" ; fi) >> "$GITHUB_ENV"
-          echo $IMAGE_TAG
           echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
+          echo $IMAGE_TAG
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -60,7 +60,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           push: true
-          tags: ${{ secrets.AWS_ECR }}/zoo-project-dru:${{ env.VERSION_TAG }}
+          tags: ${{ secrets.AWS_ECR }}/zoo-project-dru:${{ env.IMAGE_TAG }}
           build-args: |
             GIT_REF_NAME=${{ github.ref_name }}
             GIT_SHA=${{ github.sha }}
