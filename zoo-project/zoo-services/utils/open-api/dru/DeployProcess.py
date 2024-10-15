@@ -310,7 +310,7 @@ def storeCwl(conf,inputs,outputs):
 
 def DeployProcess(conf, inputs, outputs):
     try:
-        if "applicationPackage" in inputs.keys() and "isArray" in inputs["applicationPackage"].keys() and inputs["applicationPackage"]["isArray"]=="true":
+        if "applicationPackage" in inputs.keys() and "isArray" in inputs["applicationPackage"].keys() and inputs["applicationPackage"]["isArray"]=="true" and "value" in inputs["applicationPackage"]:
             print("MULTIPLE execution untis",file=sys.stderr)
             for i in range(int(inputs["applicationPackage"]["length"])):
                 if i==0:
