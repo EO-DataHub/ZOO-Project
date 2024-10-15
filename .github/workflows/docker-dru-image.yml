@@ -1,22 +1,17 @@
 name: Publish Docker image to AWS ECR
 
 on:
-  push:
-    branches:
-      - "*"
-  pull_request:
-    branches: [ main ]
 
-#  push:
-#    tags:
-#      - 'v[0-9]+'
-#      - 'v[0-9]+-*'
-#      - 'v[0-9]+.[0-9]+'
-#      - 'v[0-9]+.[0-9]+-*'
-#      - 'v[0-9]+.[0-9]+.[0-9]+'
-#      - 'v[0-9]+.[0-9]+.[0-9]+-*'
-#    branches:
-#      - '**'
+ push:
+   tags:
+     - 'eodhp-[0-9]+'
+     - 'eodhp-[0-9]+-*'
+     - 'eodhp-[0-9]+.[0-9]+'
+     - 'eodhp-[0-9]+.[0-9]+-*'
+     - 'eodhp-[0-9]+.[0-9]+.[0-9]+'
+     - 'eodhp-[0-9]+.[0-9]+.[0-9]+-*'
+   branches:
+     - '**'
 
 jobs:
   docker:
@@ -29,8 +24,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check tag
-        run: echo ${{ inputs.IMAGE_TAG }}
+      - name: Extract tag from version
+        id: extract_tag
+        run: |
+          VERSION_TAG=${GITHUB_REF#refs/tags/}
+          echo "VERSION_TAG=$VERSION_TAG" >> $GITHUB_ENV
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -61,7 +59,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           push: true
-          tags: ${{ secrets.AWS_ECR }}/zoo-project-dru
+          tags: ${{ secrets.AWS_ECR }}/zoo-project-dru:${{ env.VERSION_TAG }}
           build-args: |
             GIT_REF_NAME=${{ github.ref_name }}
             GIT_SHA=${{ github.sha }}
