@@ -170,7 +170,7 @@ RUN mkdir /tmp/cookiecutter-templates && \
     #pip install GDAL==3.4.3 && \
     pip install -r /tmp/requirements.txt && \
     cd /tmp && \
-    git clone https://github.com/Terradue/pycalrissian.git && \
+    git clone https://github.com/UKEODHP/pycalrissian.git && \
     cd pycalrissian && \
     sed "s:V1Subject:RbacV1Subject:g" -i pycalrissian/context.py && \
     python3 setup.py install && \
