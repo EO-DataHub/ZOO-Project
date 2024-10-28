@@ -76,6 +76,7 @@ extern "C" {
 	BIO_free_all(bmem);
       }
     }
+    printf("Decoded base64: %s\n", buffer); // Print the decoded base64 string
     return buffer;
   }
   
@@ -95,6 +96,7 @@ extern "C" {
     setMapInMaps(pmsConf,"headers","status","403 Forbidden");
     setMapInMaps(pmsConf,"lenv","code","NotAllowed");
     setMapInMaps(pmsConf,"lenv","message","Unable to ensure that you are allowed to access the resource.");
+    printf("Security check failed: 403 Forbidden\n"); // Print a message indicating the security check failed
     return SERVICE_FAILED;
   }
   
@@ -114,6 +116,7 @@ extern "C" {
     map* pmAuthorization=NULL;
     maps* pmsSecurity=getMaps(pmsConf,"osecurity");
     map* pmSecuredUrl=getMapFromMaps(pmsConf,"lenv","secured_url");
+    printf("Now checking security");
     setMapInMaps(pmsConf,"headers","X-Also-Powered-By","Filter Security in");
     if(pmsSecurity==NULL)
       return SERVICE_SUCCEEDED;
@@ -218,6 +221,7 @@ extern "C" {
 	      setMapInMaps(pmsConf,"headers","Status","403 Forbidden");
 	      setMapInMaps(pmsConf,"lenv","code","NotAllowed");
 	      setMapInMaps(pmsConf,"lenv","message","Unable to ensure that you are allowed to access the resource.");
+        printf("Error: pmValue or pmValue->value is NULL\n"); // Print an error message
 	      return 1;
 	    }
 	    free(pcaHash);

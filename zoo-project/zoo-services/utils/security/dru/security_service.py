@@ -32,7 +32,13 @@ def securityIn(conf,inputs,outputs):
         if "has_jwt_service" in conf["servicesNamespace"] and conf["servicesNamespace"]["has_jwt_service"]=="true":
             import jwts.security_service as s
             res=s.securityIn(conf,inputs,outputs)
+            logger.info("RES IS")
+            logger.info(res)
             s.addHeader(conf,"dru.securityIn")
+            print("S is")
+            print(s)
+            print(conf)
+            print(conf["headers"])
             if res==zoo.SERVICE_FAILED:
                 logger.error("dru.securityIn has failed")
                 return res
@@ -41,6 +47,8 @@ def securityIn(conf,inputs,outputs):
             logger.error(f"No JWT service available: {str(e)}")
             print("No JWT service available: "+str(e),file=sys.stderr)
     rPath=conf["servicesNamespace"]["path"]+"/"
+    logger.info("Headers are")
+    logger.info(conf["renv"])
     for i in conf["renv"]:
         if i.count("SERVICES_NAMESPACE"):
             rPath+=conf["renv"][i]

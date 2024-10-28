@@ -44,6 +44,8 @@ def securityIn(main_conf,inputs,outputs):
         logger.info("JWT securityIn!")
     addHeader(main_conf,"jwt.securityIn")
     hasAuth=False
+    logger.info("Headers are")
+    logger.info(main_conf["renv"])
     for i in main_conf["renv"].keys():
         if i.count("HTTP_AUTHORIZATION")>0:
             logger.info("HTTP Authorization header found")
@@ -130,6 +132,8 @@ def securityIn(main_conf,inputs,outputs):
         main_conf["renv"]["SERVICES_NAMESPACE"]=main_conf["auth_env"]["user"]
     if hasAuth or \
        ("lenv" in main_conf and "secured_url" in main_conf["lenv"] and main_conf["lenv"]["secured_url"]=="false"):
+        logger.info("Final headers")
+        logger.info(main_conf["headers"])
         return zoo.SERVICE_SUCCEEDED
     else:
         if "headers" in main_conf:
@@ -139,4 +143,6 @@ def securityIn(main_conf,inputs,outputs):
         if "lenv" in main_conf:
             main_conf["lenv"]["code"]="NotAllowed"
             main_conf["lenv"]["message"]="Unable to ensure that you are allowed to access the resource."
+        logger.info("Final headers")
+        logger.info(main_conf["headers"])
         return zoo.SERVICE_FAILED
