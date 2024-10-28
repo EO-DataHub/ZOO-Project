@@ -68,3 +68,8 @@ docker-compose up
 ````
 
 Then, from your favorite browser, just load the following URL: http://localhost/ and get immediate access to the 700+ ZOO-Services through WPS and OGC API - Processes depending on your preferences 🎉.
+
+
+## How to Build for EODHP
+
+Need to use the Dockerfile in the `docker/dru` directory. So run the following command: `docker build -f docker/dru/Dockerfile -t zoo-project:eodhp-<version-number> .` Then tag and send to ECR.
