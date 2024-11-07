@@ -72,4 +72,15 @@ Then, from your favorite browser, just load the following URL: http://localhost/
 
 ## How to Build for EODHP
 
-Need to use the Dockerfile in the `docker/dru` directory. So run the following command: `docker build -f docker/dru/Dockerfile -t zoo-project:eodhp-<version-number> .` Then tag and send to ECR.
+Need to use the Dockerfile in the `docker/dru` directory. So run the following command:   
+```
+docker build -f docker/dru/Dockerfile -t zoo-project-dru:eodhp-<version-number> .
+```
+Then tag the image:   
+```
+docker tag zoo-project-dru:eodhp-<version-number> public.ecr.aws/n1b3o1k2/zoo-project-dru:eodhp-<version-number>
+```
+ and send to ECR:   
+ ```
+ docker push public.ecr.aws/n1b3o1k2/zoo-project-dru:eodhp-<version-number>
+ ```
