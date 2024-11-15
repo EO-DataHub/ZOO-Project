@@ -175,7 +175,7 @@ RUN mkdir /tmp/cookiecutter-templates && \
     sed "s:V1Subject:RbacV1Subject:g" -i pycalrissian/context.py && \
     python3 setup.py install && \
     cd .. && \
-    git clone https://github.com/EOEPCA/cwl-wrapper.git && \
+    git clone https://github.com/UKEODHP/cwl-wrapper.git && \
     cd cwl-wrapper/ && \
     python3 setup.py install && \
     cd .. && \
