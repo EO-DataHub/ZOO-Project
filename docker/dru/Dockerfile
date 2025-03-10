@@ -183,7 +183,7 @@ RUN date && mkdir /tmp/cookiecutter-templates && \
     ls dist && \
     pip install dist/zoo_wes_runner-0.1.0-py3-none-any.whl && \
     cd .. && \
-    git clone https://github.com/Terradue/pycalrissian.git && \
+    git clone https://github.com/UKEODHP/pycalrissian.git && \
     cd pycalrissian && \
     sed "s:V1Subject:RbacV1Subject:g" -i pycalrissian/context.py && \
     python3 setup.py install && \
