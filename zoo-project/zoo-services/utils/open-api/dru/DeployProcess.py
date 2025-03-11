@@ -128,16 +128,16 @@ class DeployService(Services):
             raise ValueError("The inputs dot not include applicationPackage")
 
         # loading cwl in yaml object
-        if "cache_file" in self.inputs["applicationPackage"]:
-            zoo.info(
-                f"Loading CWL from cache file {self.inputs['applicationPackage']['cache_file']}"
-            )
-            cwl_content = yaml.safe_load(
-                open(self.inputs["applicationPackage"]["cache_file"]).read()
-            )
-        else:
-            zoo.info("Loading CWL from value")
-            cwl_content = yaml.safe_load(self.inputs["applicationPackage"]["value"])
+        # if "cache_file" in self.inputs["applicationPackage"]:
+        #     zoo.info(
+        #         f"Loading CWL from cache file {self.inputs['applicationPackage']['cache_file']}"
+        #     )
+        #     cwl_content = yaml.safe_load(
+        #         open(self.inputs["applicationPackage"]["cache_file"]).read()
+        #     )
+        # else:
+        zoo.info("Loading CWL from value")
+        cwl_content = yaml.safe_load(self.inputs["applicationPackage"]["value"])
 
         return cwl_content
 
