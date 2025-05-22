@@ -236,10 +236,9 @@ RUN date && mkdir /tmp/cookiecutter-templates && \
     pip install hatch && \
     # Using the latest version of pycalrissian with the fix for the RBAC
     cd /tmp && \
-    git clone -b develop https://github.com/Terradue/pycalrissian.git && \
+    git clone -b main https://github.com/EO-DataHub/pycalrissian.git && \
     cd pycalrissian && \
-    hatch build && \
-    pip install ./dist/pycalrissian-0.8.0-py3-none-any.whl && \
+    python3 setup.py install && \
     cd .. && \
     pip install -r /tmp/requirements.txt && \
     cd /tmp && \
