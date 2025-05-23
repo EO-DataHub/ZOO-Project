@@ -10,7 +10,7 @@
  boto3==1.35.92
  kubernetes
  coverage
- git+https://github.com/EOEPCA/zoo-calrissian-runner.git@develop
+ git+https://github.com/EO-DataHub/zoo-calrissian-runner.git@main
  git+https://github.com/EOEPCA/zoo-argowf-runner.git@develop
  cheetah3
  redis

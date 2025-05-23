@@ -15,10 +15,11 @@ dependencies:
   - git
   - pip
   - cwl-wrapper
-  - pycalrissian
+  # - pycalrissian
   - loguru
   - pip:
-    - git+https://github.com/EOEPCA/zoo-calrissian-runner.git@b495e83
+    - git+https://github.com/EO-DataHub/zoo-calrissian-runner.git
+    - git+https://github.com/EO-DataHub/pycalrissian.git
     - attrs
     - cwl-utils==0.14
     - cheetah3
