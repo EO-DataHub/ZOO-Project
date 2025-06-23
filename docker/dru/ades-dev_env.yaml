@@ -18,8 +18,8 @@ dependencies:
   # - pycalrissian
   - loguru
   - pip:
-    - git+https://github.com/EO-DataHub/zoo-calrissian-runner.git
-    - git+https://github.com/EO-DataHub/pycalrissian.git
+    - git+https://github.com/EO-DataHub/zoo-calrissian-runner.git@eodhp-0.1.0
+    - git+https://github.com/EO-DataHub/pycalrissian.git@eodhp-0.1.0
     - attrs
     - cwl-utils==0.14
     - cheetah3
