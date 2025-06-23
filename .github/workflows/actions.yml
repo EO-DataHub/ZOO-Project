@@ -85,7 +85,7 @@ jobs:
           context: .
           file: ./docker/dru/Dockerfile
           push: true
-          tags: ${{ steps.login-ecr-public.outputs.registry }}/${{ vars.AWS_ECR_ALIAS }}/${{ vars.IMAGE_NAME }}:${{ vars.IMAGE_TAG }}
+          tags: ${{ steps.login-ecr-public.outputs.registry }}/${{ vars.AWS_ECR_ALIAS }}/${{ vars.IMAGE_NAME }}:${{ needs.get-tag-name.outputs.image_tag }}
           build-args: |
             GIT_REF_NAME=${{ github.ref_name }}
             GIT_SHA=${{ github.sha }}
