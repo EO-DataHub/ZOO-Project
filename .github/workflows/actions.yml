@@ -1,0 +1,93 @@
+name: All checks
+on:
+  workflow_call:
+  push:
+    tags:
+      - eodhp-[0-9]+*
+    branches:
+      - "**"
+
+jobs:
+  pre-commit-preparation:
+    name: Pre-commit
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Copy config
+        run: |
+          if [ ! -f .pre-commit-config.yaml ]; then
+            curl -o .pre-commit-config.yaml https://raw.githubusercontent.com/EO-DataHub/github-actions/main/.pre-commit-config-python.yaml
+          fi
+
+      - uses: pre-commit/action@v3.0.1
+
+  security-scan:
+    name: Call Security Scan
+    permissions:
+      contents: read
+    uses: EO-DataHub/github-actions/.github/workflows/security.yaml@main
+
+  get-tag-name:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.get-image-tag.outputs.IMAGE_TAG }}
+    steps:
+      - name: Get image tag
+        id: get-image-tag
+        run: |
+          IMAGE_TAG=$(if [[ "${GITHUB_REF##refs/tags/}" =~ ^v ]]; then echo ${GITHUB_REF##refs/tags/v}; elif [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then echo "latest"; else echo "${GITHUB_REF##refs/heads/}-latest" | sed "s/[^a-zA-Z0-9]/-/g" ; fi) >> "$GITHUB_ENV"
+          echo $IMAGE_TAG
+          echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: [get-tag-name]
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check tag
+        run: echo ${{ needs.get-tag-name.outputs.image_tag }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1 # This is the region for the public ECR
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Amazon ECR
+        id: login-ecr-public
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registry-type: public
+
+      - name: Check ECR registry
+        run: echo ${{ steps.login-ecr-public.outputs.registry }}/${{ vars.AWS_ECR_ALIAS }}
+
+        # This will cache Docker layers.
+        # We could also cache the cache mounts used in the Dockerfile but do not,
+        # see https://docs.docker.com/build/ci/github-actions/cache/
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./docker/dru/Dockerfile
+          push: true
+          tags: ${{ steps.login-ecr-public.outputs.registry }}/${{ vars.AWS_ECR_ALIAS }}/${{ vars.IMAGE_NAME }}:${{ vars.IMAGE_TAG }}
+          build-args: |
+            GIT_REF_NAME=${{ github.ref_name }}
+            GIT_SHA=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=m
