@@ -244,7 +244,8 @@ RUN date && mkdir /tmp/cookiecutter-templates && \
     cd /tmp && \
     git clone https://github.com/ZOO-Project/zoo-wes-runner.git && \
     cd zoo-wes-runner && \
-    hatch build && \
+    git checkout b6f525fcfa0cd6546f8facd2197c089f21296e4c && \
+    poetry build && \
     ls dist && \
     pip install dist/zoo_wes_runner-0.1.0-py3-none-any.whl && \
     cd .. && \
