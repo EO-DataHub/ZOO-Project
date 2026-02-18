@@ -4340,6 +4340,10 @@ extern "C" {
   json_object* convertCwlToOGCAppPkg(maps* pmsConf,map* pmRequestInputs){
     json_object* pjoRes=NULL;
     map* pmJRequest=getMap(pmRequestInputs,"jrequest");
+    // If not found in request_inputs, check renv (where POST body is stored)
+    if(pmJRequest==NULL){
+      pmJRequest=getMapFromMaps(pmsConf,"renv","jrequest");
+    }
     map* pmCgiContentType=getMapFromMaps(pmsConf,"request","Content-Type");
     if(pmJRequest!=NULL && pmCgiContentType!=NULL && strstr(pmCgiContentType->value,"cwl")!=NULL){
       pjoRes=json_object_new_object();
