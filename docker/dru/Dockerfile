@@ -236,7 +236,7 @@ RUN date && mkdir /tmp/cookiecutter-templates && \
     pip install hatch && \
     # Using the latest version of pycalrissian with the fix for the RBAC
     cd /tmp && \
-    git clone -b eodhp-0.1.4 https://github.com/EO-DataHub/pycalrissian.git && \
+    git clone -b eodhp-0.1.9 https://github.com/EO-DataHub/pycalrissian.git && \
     cd pycalrissian && \
     python3 setup.py install && \
     cd .. && \
@@ -244,7 +244,8 @@ RUN date && mkdir /tmp/cookiecutter-templates && \
     cd /tmp && \
     git clone https://github.com/ZOO-Project/zoo-wes-runner.git && \
     cd zoo-wes-runner && \
-    hatch build && \
+    git checkout b6f525fcfa0cd6546f8facd2197c089f21296e4c && \
+    poetry build && \
     ls dist && \
     pip install dist/zoo_wes_runner-0.1.0-py3-none-any.whl && \
     cd .. && \
