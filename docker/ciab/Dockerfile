@@ -248,7 +248,7 @@ RUN set -ex \
     #&& pip3 install GDAL==2.4.2 \
     && pip3 install Cheetah3 redis spython \
     && pip uninstall jwt \
-    && pip install PyJWT \
+    && pip install "PyJWT[crypto]" \
     && sed "s:AllowOverride None:AllowOverride All:g" -i /etc/apache2/apache2.conf \
     \
     # For using another port than 80, uncomment below. \

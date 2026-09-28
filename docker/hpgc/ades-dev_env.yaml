@@ -29,5 +29,5 @@ dependencies:
     - botocore
     - pystac
     - python-dotenv
-    - pyjwt
+    - pyjwt[crypto]
 prefix: /usr/miniconda3/envs/ades-dev

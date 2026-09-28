@@ -29,6 +29,24 @@ import jwt
 import sys
 import json
 
+_jwksClients={}
+
+def getSigningKey(main_conf,token):
+    """Resolve the PyJWK used to sign ``token`` via the OIDC discovery
+    document / JWKS endpoint advertised in the [osecurity]
+    ``openIdConnectUrl`` config, so the JWT signature can be verified
+    instead of trusted blindly."""
+    if "osecurity" not in main_conf or "openIdConnectUrl" not in main_conf["osecurity"]:
+        raise Exception("No openIdConnectUrl configured, unable to verify JWT signature")
+    oidcUrl=main_conf["osecurity"]["openIdConnectUrl"]
+    jwksClient=_jwksClients.get(oidcUrl)
+    if jwksClient is None:
+        import requests
+        oidcConfig=requests.get(oidcUrl,timeout=5).json()
+        jwksClient=jwt.PyJWKClient(oidcConfig["jwks_uri"])
+        _jwksClients[oidcUrl]=jwksClient
+    return jwksClient.get_signing_key_from_jwt(token)
+
 def addHeader(conf,name):
     if "headers" not in conf:
         conf["headers"]={}
@@ -53,36 +71,48 @@ def securityIn(main_conf,inputs,outputs):
                 if "osecurity" in main_conf and "realm" in main_conf["osecurity"]:
                     if main_conf["renv"][i].count("oidc/"+main_conf["osecurity"]["realm"]+"/")>0:
                         cJWT=cJWT.replace("oidc/"+main_conf["osecurity"]["realm"]+"/","")
-                jsonObj=jwt.decode(cJWT, options={"verify_signature": False,"verify_aud": False})
-                hasAuth=True
-                myKeys=list(jsonObj.keys())
-                for k in jsonObj.keys():
-                    if k.count("username")>0 or k.count("user_name")>0:
-                        if "osecurity" in main_conf and \
-                           "allowed_users" in main_conf["osecurity"] and \
-                           "preferred_username" in jsonObj and \
-                           main_conf["osecurity"]["allowed_users"].split(",").count(jsonObj["preferred_username"])==0:
-                            if "lenv" not in main_conf:
-                                main_conf["lenv"] = {}
-                            main_conf["lenv"]["message"]=zoo._("You are not authorized to perform the requested operation on the resource (jwt.securityIn).")
-                            main_conf["lenv"]["code"]="Forbidden"
-                            main_conf["lenv"]["status"]="403 Forbidden"
-                            if "headers" in main_conf:
-                                main_conf["headers"]["status"]="403 Forbidden"
-                            else:
-                                main_conf["headers"]={"status":"403 Forbidden"}
-                        main_conf["auth_env"]={"user": jsonObj[k] }
-                        break
-                if "auth_env" not in main_conf:
-                    main_conf["auth_env"] = {}
-                if "email" in jsonObj.keys():
-                    main_conf["auth_env"]["email"]=jsonObj["email"]
-                for l in range(len(myKeys)):
-                    main_conf["auth_env"][myKeys[l]]=str(jsonObj[myKeys[l]])
-                main_conf["auth_env"]["jwt"]=cJWT
-                if "lenv" not in main_conf:
-                    main_conf["lenv"] = {}
-                main_conf["lenv"]["json_user"]=json.dumps(jsonObj)
+                try:
+                    signingKey=getSigningKey(main_conf,cJWT)
+                    decodeOptions={"verify_aud": False}
+                    audience=None
+                    if "osecurity" in main_conf and "audience" in main_conf["osecurity"]:
+                        audience=main_conf["osecurity"]["audience"]
+                        decodeOptions["verify_aud"]=True
+                    jsonObj=jwt.decode(cJWT,signingKey.key,algorithms=[signingKey.algorithm_name],audience=audience,options=decodeOptions)
+                except Exception as e:
+                    print("JWT signature verification failed: "+str(e),file=sys.stderr)
+                    jsonObj=None
+                if jsonObj is not None:
+                    hasAuth=True
+                    myKeys=list(jsonObj.keys())
+                    for k in jsonObj.keys():
+                        if k.count("username")>0 or k.count("user_name")>0:
+                            if "osecurity" in main_conf and \
+                               "allowed_users" in main_conf["osecurity"] and \
+                               "preferred_username" in jsonObj and \
+                               main_conf["osecurity"]["allowed_users"].split(",").count(jsonObj["preferred_username"])==0:
+                                if "lenv" not in main_conf:
+                                    main_conf["lenv"] = {}
+                                main_conf["lenv"]["message"]=zoo._("You are not authorized to perform the requested operation on the resource (jwt.securityIn).")
+                                main_conf["lenv"]["code"]="Forbidden"
+                                main_conf["lenv"]["status"]="403 Forbidden"
+                                if "headers" in main_conf:
+                                    main_conf["headers"]["status"]="403 Forbidden"
+                                else:
+                                    main_conf["headers"]={"status":"403 Forbidden"}
+                                return zoo.SERVICE_FAILED
+                            main_conf["auth_env"]={"user": jsonObj[k] }
+                            break
+                    if "auth_env" not in main_conf:
+                        main_conf["auth_env"] = {}
+                    if "email" in jsonObj.keys():
+                        main_conf["auth_env"]["email"]=jsonObj["email"]
+                    for l in range(len(myKeys)):
+                        main_conf["auth_env"][myKeys[l]]=str(jsonObj[myKeys[l]])
+                    main_conf["auth_env"]["jwt"]=cJWT
+                    if "lenv" not in main_conf:
+                        main_conf["lenv"] = {}
+                    main_conf["lenv"]["json_user"]=json.dumps(jsonObj)
             else:
                 import requests
                 if "osecurity" in main_conf and \

@@ -17,7 +17,7 @@
  CloudEvents
  psycopg2-binary
  pyyaml
- pyjwt
+ pyjwt[crypto]
  loguru
  pystac
  gdal==3.4.3
