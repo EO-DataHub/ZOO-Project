@@ -271,7 +271,11 @@ RUN date && mkdir /tmp/cookiecutter-templates && \
     apt-get purge -y $DEPS_TO_REMOVE $BUILD_DEPS && \
     rm -rf /var/lib/apt/lists/*
 
-
+# Ubuntu 20.04 no longer gets ca-certificates updates, so apply the October 2026
+# eMudhra distrust here (same roots Debian and Ubuntu removed)
+RUN sed -i -E 's#^(mozilla/(emSign_ECC_Root_CA_-_G3|Comodo_AAA_Services_root)\.crt)$#!\1#' /etc/ca-certificates.conf && \
+    grep -qx '!mozilla/emSign_ECC_Root_CA_-_G3.crt' /etc/ca-certificates.conf && \
+    update-ca-certificates --fresh
 
 COPY docker/dru/index.html /var/www/html/index.html
 
