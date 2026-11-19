@@ -2248,6 +2248,34 @@ extern "C" {
 #endif
 
   /**
+   * Check that a value is not empty and only holds characters from a set.
+   * The job list filters are put into SQL text, so each one is checked
+   * against the characters it can need before it is used.
+   *
+   * @param pccValue the value to check
+   * @param pccAllowed the characters the value can hold
+   * @return true if the value is not empty and only holds allowed characters
+   */
+  static bool isMadeOf(const char* pccValue,const char* pccAllowed){
+    if(pccValue==NULL || pccValue[0]==0)
+      return false;
+    return strspn(pccValue,pccAllowed)==strlen(pccValue);
+  }
+
+  /**
+   * Check that a value can be an RFC 3339 date or date-time. Postgres parses
+   * the value, so this only checks that it starts with a digit and holds no
+   * character a date-time does not need.
+   *
+   * @param pccValue the value to check
+   * @return true if the value can be used as a timestamptz literal
+   */
+  static bool isDateTimeValue(const char* pccValue){
+    return isMadeOf(pccValue,"0123456789-:.TtZz+ ") &&
+      pccValue[0]>='0' && pccValue[0]<='9';
+  }
+
+  /**
    * Print the filtered jobs list
    *
    * @param ppmsConf the maps containing the settings of the main.cfg file
@@ -2255,18 +2283,27 @@ extern "C" {
    * @see printJobList
    */
   json_object* printFilteredJobList(maps** ppmsConf, map* pmRequestInputs){
+    // Set when a parameter holds a value that cannot be used
+    bool bInvalidParam=false;
     map* pmTmp=getMap(pmRequestInputs,"limit");
     maps* pmsConf=*ppmsConf;
-    if(pmTmp!=NULL)
+    if(pmTmp!=NULL){
+      // limit and skip are read with atoi: whole numbers only. A limit of 0
+      // returns no jobs but a next link to the same page, so it must be > 0
+      if(!isMadeOf(pmTmp->value,"0123456789") || atoi(pmTmp->value)<=0)
+        bInvalidParam=true;
       setMapInMaps(pmsConf,"lenv","serviceCntLimit",pmTmp->value);
-    else{
+    }else{
       pmTmp=getMapFromMaps(pmsConf,"limitParam","schema_default");
       if(pmTmp!=NULL)
         setMapInMaps(pmsConf,"lenv","serviceCntLimit",pmTmp->value);
     }
     pmTmp=getMap(pmRequestInputs,"skip");
-    if(pmTmp!=NULL)
+    if(pmTmp!=NULL){
+      if(!isMadeOf(pmTmp->value,"0123456789"))
+        bInvalidParam=true;
       setMapInMaps(pmsConf,"lenv","serviceCntSkip",pmTmp->value);
+    }
     // Build the SQL Clause
     char* pcaClause=NULL;
     char* pcaClauseFinal=NULL;
@@ -2277,6 +2314,9 @@ extern "C" {
         char *tmps = strtok_r(pmTmp->value, ",", &pcSavePtr);
         int iCnt=0;
         while (tmps != NULL){
+          // The value is quoted as $q$...$q$, so it must not hold a $
+          if(strchr(tmps,'$')!=NULL)
+            bInvalidParam=true;
           for(int l=0;l<5;l++){
             if(strcmp(tmps,oapipStatus[l])==0){
               tmps=wpsStatus[l];
@@ -2325,6 +2365,9 @@ extern "C" {
       char *pcSavePtr;
       char *tmps = strtok_r(pmTmp->value, ",", &pcSavePtr);
       while (tmps != NULL){
+        // The value is put in a '... second' literal: seconds only
+        if(!isMadeOf(tmps,"0123456789."))
+          bInvalidParam=true;
         if(pcaClauseMin==NULL){
           pcaClauseMin=(char*)malloc((strlen(tmps)+52)*sizeof(char));
           sprintf(pcaClauseMin," ('%s second'::interval <= (end_time - creation_time)",tmps);
@@ -2358,6 +2401,9 @@ extern "C" {
       char *pcSavePtr;
       char *tmps = strtok_r(pmTmp->value, ",", &pcSavePtr);
       while (tmps != NULL){
+        // The value is put in a '... second' literal: seconds only
+        if(!isMadeOf(tmps,"0123456789."))
+          bInvalidParam=true;
         if(pcaClauseMax==NULL){
           pcaClauseMax=(char*)malloc((strlen(tmps)+52)*sizeof(char));
           sprintf(pcaClauseMax," ('%s second'::interval >= (end_time - creation_time)",tmps);
@@ -2410,69 +2456,64 @@ extern "C" {
         free(pcaClauseType);
       }
     }
-    // datetime parameter
-    char* pcaClauseDate=NULL;
+    // datetime parameter: an instant, or an interval start/end where an open
+    // end is empty or "..". The kernel can add a query parameter twice and
+    // joins two different copies with a comma, so use the last copy.
     pmTmp=getMap(pmRequestInputs,"datetime");
-    if(pmTmp!=NULL){
-      if(strstr(pmTmp->value,"/")!=NULL){
-        char *pcSavePtr0;
-        char *tmps0 = strtok_r(pmTmp->value, ",", &pcSavePtr0);
-        int iCnt0=0;
-        while(tmps0 != NULL){
-          if(iCnt0>0){
-            char *pcSavePtr;
-            char *tmps = strtok_r(tmps0, "/", &pcSavePtr);
-            int iCnt=0;
-            while (tmps != NULL){
-              if(iCnt==0 && tmps0[0]!='/'){
-                if(strlen(tmps)>2){
-                  pcaClauseDate=(char*)malloc((strlen(tmps)+30+1)*sizeof(char));
-                  sprintf(pcaClauseDate,"creation_time>='%s'::timestamptz",tmps);
-                }
-              }else{
-                if(strlen(tmps)>2){
-                  if(pcaClauseDate==NULL){
-                    pcaClauseDate=(char*)malloc((strlen(tmps)+30+1)*sizeof(char));
-                    sprintf(pcaClauseDate,"creation_time<='%s'::timestamptz",tmps);
-                  }else{
-                    char* pcaTmp=zStrdup(pcaClauseDate);
-                    pcaClauseDate=(char*)realloc(pcaClauseDate,(strlen(pcaTmp)+strlen(tmps)+35+1)*sizeof(char));
-                    sprintf(pcaClauseDate,"%s AND creation_time<='%s'::timestamptz",pcaTmp,tmps);
-                    free(pcaTmp);
-                  }
-                }
-              }
-              iCnt++;
-              tmps = strtok_r (NULL, "/", &pcSavePtr);
-            }
-          }
-          iCnt0++;
-          tmps0 = strtok_r (NULL, ",", &pcSavePtr0);
-        }
+    if(pmTmp!=NULL && strlen(pmTmp->value)>0){
+      char* pcLast=strrchr(pmTmp->value,',');
+      char* pcaDate=zStrdup(pcLast!=NULL?pcLast+1:pmTmp->value);
+      char* pcaClauseDate=NULL;
+      char* pcSlash=strchr(pcaDate,'/');
+      if(pcSlash==NULL){
+        if(isDateTimeValue(pcaDate)){
+          pcaClauseDate=(char*)malloc((strlen(pcaDate)+31)*sizeof(char));
+          sprintf(pcaClauseDate,"creation_time='%s'::timestamptz",pcaDate);
+        }else
+          bInvalidParam=true;
       }else{
-        char *pcSavePtr0;
-        char *tmps0 = strtok_r(pmTmp->value, ",", &pcSavePtr0);
-        int iCnt0=0;
-        while(tmps0 != NULL){
-          if(iCnt0>0){
-            pcaClauseDate=(char*)malloc((strlen(tmps0)+29+1)*sizeof(char));
-            sprintf(pcaClauseDate,"creation_time='%s'::timestamptz",tmps0);
+        *pcSlash=0;
+        const char* pccBounds[2]={pcaDate,pcSlash+1};
+        const char* pccOperators[2]={">=","<="};
+        for(int i=0;i<2;i++){
+          if(pccBounds[i][0]==0 || strcmp(pccBounds[i],"..")==0)
+            continue;
+          if(!isDateTimeValue(pccBounds[i])){
+            bInvalidParam=true;
+            break;
           }
-          iCnt0++;
-          tmps0 = strtok_r (NULL, ",", &pcSavePtr0);
+          size_t iLen=strlen(pccBounds[i])+32+
+            (pcaClauseDate!=NULL?strlen(pcaClauseDate)+5:0);
+          char* pcaNew=(char*)malloc(iLen*sizeof(char));
+          if(pcaClauseDate==NULL)
+            sprintf(pcaNew,"creation_time%s'%s'::timestamptz",
+                    pccOperators[i],pccBounds[i]);
+          else
+            sprintf(pcaNew,"%s AND creation_time%s'%s'::timestamptz",
+                    pcaClauseDate,pccOperators[i],pccBounds[i]);
+          free(pcaClauseDate);
+          pcaClauseDate=pcaNew;
         }
       }
-      if(pcaClauseFinal==NULL)
-        pcaClauseFinal=zStrdup(pcaClauseDate);
-      else{
-        char* pcaTmp=zStrdup(pcaClauseFinal);
-        pcaClauseFinal=(char*)realloc(pcaClauseFinal,
-                                      (strlen(pcaTmp)+strlen(pcaClauseDate)+6)*sizeof(char));
-        sprintf(pcaClauseFinal,"%s AND %s",
-                pcaTmp,pcaClauseDate);
-        free(pcaTmp);
+      if(pcaClauseDate!=NULL){
+        if(pcaClauseFinal==NULL)
+          pcaClauseFinal=zStrdup(pcaClauseDate);
+        else{
+          char* pcaTmp=zStrdup(pcaClauseFinal);
+          pcaClauseFinal=(char*)realloc(pcaClauseFinal,
+                                        (strlen(pcaTmp)+strlen(pcaClauseDate)+6)*sizeof(char));
+          sprintf(pcaClauseFinal,"%s AND %s",
+                  pcaTmp,pcaClauseDate);
+          free(pcaTmp);
+        }
+        free(pcaClauseDate);
       }
-      free(pcaClauseDate);
+      free(pcaDate);
+    }
+    if(bInvalidParam){
+      free(pcaClauseFinal);
+      setMapInMaps(pmsConf,"lenv","selectedJob","-1");
+      return printJobList(ppmsConf);
     }
     if(pcaClauseFinal==NULL){
       pcaClauseFinal=zStrdup("true");
@@ -2480,16 +2521,18 @@ extern "C" {
       fflush(stderr);
     }
     // Filter jobs list based on the potential user_id
-    filterJobByUser(pmsConf,&pcaClauseFinal,pcaClauseDate);
+    filterJobByUser(pmsConf,&pcaClauseFinal,NULL);
     map *schema=getMapFromMaps(pmsConf,"database","schema");
     if(pcaClauseFinal!=NULL && schema!=NULL){
       char* pcaTmp=(char*) malloc((strlen(pcaClauseFinal)+
                                     strlen(schema->value)+
-                                    98+1)
+                                    133+1)
                                   *sizeof(char));
+      // Newest first, so that limit and skip give stable pages
       sprintf(pcaTmp,
               "select replace(replace(array(select ''''||uuid||'''' "
-              "from  %s.services where %s)::text,'{',''),'}','')",
+              "from  %s.services where %s "
+              "order by creation_time desc, uuid)::text,'{',''),'}','')",
               schema->value,pcaClauseFinal);
       free(pcaClauseFinal);
       char* tmp1=
