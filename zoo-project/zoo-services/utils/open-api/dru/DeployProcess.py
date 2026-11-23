@@ -39,6 +39,7 @@ from cookiecutter.main import cookiecutter
 import os
 import sys
 import shutil
+import signal
 import subprocess
 import tempfile
 import json
@@ -151,9 +152,18 @@ class DeployService(Services):
         command += [self.cookiecutter_template_url, template_folder]
 
         zoo.info(f"Running {' '.join(command)}")
-        # a stalled connection must not hold the deployment forever
-        result = subprocess.run(command, capture_output=True, text=True, timeout=120)
-        if result.returncode != 0:
+        # ZOO-Kernel ignores SIGCHLD, which git inherits and then fails to wait
+        # for its own helpers. The timeout stops a stalled connection holding
+        # the deployment forever.
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            preexec_fn=lambda: signal.signal(signal.SIGCHLD, signal.SIG_DFL),
+        )
+        # with SIGCHLD ignored the exit status is lost and reads as 0
+        if result.returncode != 0 or not os.path.isdir(template_folder):
             raise RuntimeError(
                 f"Cloning {self.cookiecutter_template_url} failed: {result.stderr.strip()}"
             )
