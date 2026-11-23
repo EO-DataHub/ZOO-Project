@@ -39,7 +39,6 @@ from cookiecutter.main import cookiecutter
 import os
 import sys
 import shutil
-import signal
 import subprocess
 import tempfile
 import json
@@ -48,6 +47,16 @@ from pathlib import Path
 from deploy_util import Process
 from collections import namedtuple
 from deploy_util import Services
+
+
+# ZOO-Kernel ignores SIGCHLD. A child inherits that, so git cannot wait for its
+# helpers and we cannot read the exit status of git. This runs a command with
+# SIGCHLD restored and prints its exit status.
+RUN_WITH_SIGCHLD = """
+import signal, subprocess, sys
+signal.signal(signal.SIGCHLD, signal.SIG_DFL)
+print("exit", subprocess.run(sys.argv[1:], stdout=sys.stderr).returncode)
+"""
 
 
 def get_s3_settings():
@@ -152,18 +161,15 @@ class DeployService(Services):
         command += [self.cookiecutter_template_url, template_folder]
 
         zoo.info(f"Running {' '.join(command)}")
-        # ZOO-Kernel ignores SIGCHLD, which git inherits and then fails to wait
-        # for its own helpers. The timeout stops a stalled connection holding
-        # the deployment forever.
+        # The timeout stops a stalled connection holding the deployment forever.
         result = subprocess.run(
-            command,
+            ["python3", "-c", RUN_WITH_SIGCHLD] + command,
             capture_output=True,
             text=True,
             timeout=120,
-            preexec_fn=lambda: signal.signal(signal.SIGCHLD, signal.SIG_DFL),
         )
-        # with SIGCHLD ignored the exit status is lost and reads as 0
-        if result.returncode != 0 or not os.path.isdir(template_folder):
+        # our own exit status is lost, the helper prints the one of git
+        if result.stdout.strip().splitlines()[-1:] != ["exit 0"]:
             raise RuntimeError(
                 f"Cloning {self.cookiecutter_template_url} failed: {result.stderr.strip()}"
             )
