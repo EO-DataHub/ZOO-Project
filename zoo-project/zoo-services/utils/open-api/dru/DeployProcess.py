@@ -39,6 +39,8 @@ from cookiecutter.main import cookiecutter
 import os
 import sys
 import shutil
+import subprocess
+import tempfile
 import json
 import yaml
 from pathlib import Path
@@ -141,45 +143,27 @@ class DeployService(Services):
 
         return cwl_content
 
+    def clone_template(self, template_folder):
+        command = ["git", "clone", "--depth", "1"]
+        # if no branch is specified, we will clone the default branch
+        if self.cookiecutter_template_branch is not None:
+            command += ["-b", self.cookiecutter_template_branch]
+        command += [self.cookiecutter_template_url, template_folder]
+
+        zoo.info(f"Running {' '.join(command)}")
+        # a stalled connection must not hold the deployment forever
+        result = subprocess.run(command, capture_output=True, text=True, timeout=120)
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Cloning {self.cookiecutter_template_url} failed: {result.stderr.strip()}"
+            )
+
     def generate_service(self):
 
         path = None
         if "noRunSql" not in self.conf["lenv"]:
             # checking if the template location is remote or local
-            if self.cookiecutter_template_url.endswith(".git"):
-                zoo.info(f"Cloning {self.cookiecutter_template_url}")
-                template_folder = os.path.join(
-                    self.cookiecutter_templates_folder,
-                    Path(self.cookiecutter_template_url).stem,
-                )
-
-                # checking if template had already been cloned
-                if os.path.isdir(template_folder):
-                    zoo.info(f"Template already cloned in {template_folder}, pull only")
-                    os.system(
-                        f"cd {template_folder}; git pull > log"
-                    )
-                else:
-                    # retrieving the branch to clone
-                    # if no branch is specified, we will clone the master branch
-                    cookiecutter_template_branch = self.cookiecutter_template_branch
-
-                    # cloning the template
-
-                    if cookiecutter_template_branch is not None:
-                        zoo.info(
-                            f"Cloning {self.cookiecutter_template_url} branch {cookiecutter_template_branch}"
-                        )
-                        os.system(
-                            f"git clone -b {cookiecutter_template_branch} {self.cookiecutter_template_url} {template_folder}"
-                        )
-                    else:
-                        zoo.info(f"Cloning {self.cookiecutter_template_url}")
-                        os.system(
-                            f"git clone {self.cookiecutter_template_url} {template_folder}"
-                        )
-
-            else:
+            if not self.cookiecutter_template_url.endswith(".git"):
                 zoo.error(
                     f"{self.cookiecutter_template_url} is not a valid git repo"
                 )
@@ -193,15 +177,23 @@ class DeployService(Services):
                 "conf": self.conf["cookiecutter"],
             }
 
-            # Create project from template
-            path = cookiecutter(
-                template_folder,
-                extra_context=cookiecutter_values,
-                output_dir=self.service_tmp_folder,
-                no_input=True,
-                overwrite_if_exists=True,
-                config_file=self.cookiecutter_configuration_file,
-            )
+            # A clone kept between deployments went stale when git pull failed,
+            # so every deployment clones the template again.
+            with tempfile.TemporaryDirectory(prefix="cookiecutter-template-") as tmp:
+                template_folder = os.path.join(
+                    tmp, Path(self.cookiecutter_template_url).stem
+                )
+                self.clone_template(template_folder)
+
+                # Create project from template
+                path = cookiecutter(
+                    template_folder,
+                    extra_context=cookiecutter_values,
+                    output_dir=self.service_tmp_folder,
+                    no_input=True,
+                    overwrite_if_exists=True,
+                    config_file=self.cookiecutter_configuration_file,
+                )
 
             # checking if the service has been deployed
             if os.path.isdir(path):
